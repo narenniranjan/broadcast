@@ -1,0 +1,22 @@
+[
+    {
+        "type": "irc",
+        "nick": "Mumble",
+        "channel": "#channel",
+        "server": "irc.server.name",
+        "port": "6697",
+        "tls": "True",
+        "tls_verify": "False"
+    },
+    {
+        "type": "mumble",
+        "nick": "IRC",
+        "channel_id": "0",
+        "server": "mumble.server.name",
+        "port": "64738",
+        "password": "pass",
+        "_comment": "the following two are optional fields",
+        "cert": "/path/to/cert",
+        "certpw": "pass"
+    }
+]
