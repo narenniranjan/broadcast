@@ -45,6 +45,15 @@ class IRCClient(pydle.Client):
     def on_connect(self):
         self.join(self.channel)
 
+    def on_join(self, channel, user):
+        self.bus.broadcast(self, user, channel, MsgType.JOIN)
+
+    def on_part(self, channel, user, reason):
+        self.bus.broadcast(self, user, channel, MsgType.PART)
+
+    def on_quit(self, user, reason):
+        self.bus.broadcast(self, user, self.channel, MsgType.PART)
+
     def on_message(self, source, target, message):
         self.bus.broadcast(self, target, message, MsgType.TEXT)
 
@@ -78,6 +87,16 @@ class MumbleClient(mumble.Client):
 
     def connection_ready(self):
         self.join_channel(self.channels[self.channel_id])
+
+    def user_moved(self, user, source, dest):
+        if source and source == self.me.get_channel():
+            self.bus.broadcast(
+                        self, user.name,
+                        self.me.get_channel().name, MsgType.PART)
+        if dest and dest == self.me.get_channel():
+            self.bus.broadcast(
+                        self, user.name,
+                        self.me.get_channel().name, MsgType.JOIN)
 
     def text_message_received(self, origin, target, message):
         self.bus.broadcast(self, origin.name, message, MsgType.TEXT)
