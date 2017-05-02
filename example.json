@@ -1,6 +1,7 @@
 [
     {
         "type": "irc",
+        "prefix", "I",
         "nick": "Mumble",
         "channel": "#channel",
         "server": "irc.server.name",
@@ -10,6 +11,7 @@
     },
     {
         "type": "mumble",
+        "prefix": "M",
         "nick": "IRC",
         "channel_id": "0",
         "server": "mumble.server.name",
