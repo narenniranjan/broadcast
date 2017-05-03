@@ -15,7 +15,7 @@ def escape_nick(nick):
 
 
 def strip_html(html):
-    return bs4.BeautifulSoup(html, "lxml").text
+    return bs4.BeautifulSoup(html).text
 
 
 def linkify(url):
@@ -86,10 +86,16 @@ class CommandProcessor(object):
             return None
         return client.get_topic()
 
+    def get_prefixes(self):
+        return ", ".join(
+                ["{}: {}".format(key, val.name)
+                    for key, val in self.clients.items()])
+
 
 # Pydle class that implements the bus interface.
 class IRCClient(pydle.Client):
-    def __init__(self, bus, cmd, nick, channel, prefix):
+    def __init__(self, name, bus, cmd, nick, channel, prefix):
+        self.name = name
         self.bus = bus
         self.cmd = cmd
         self.prefix = prefix
@@ -123,6 +129,8 @@ class IRCClient(pydle.Client):
             else:
                 self.notice(author, 'Please enter the prefix of the '
                                     'room to get the topic of.')
+        elif args[0] == '.prefixes' or args[0] == '.prefix':
+            self.notice(author, self.cmd.get_prefixes())
 
     # callbacks
     def on_connect(self):
@@ -185,7 +193,8 @@ class IRCClient(pydle.Client):
 
 # python-mumble class that impelements the bus interface
 class MumbleClient(mumble.Client):
-    def __init__(self, bus, cmd, channel_id, prefix):
+    def __init__(self, name, bus, cmd, channel_id, prefix):
+        self.name = name
         self.bus = bus
         self.cmd = cmd
         self.prefix = prefix
@@ -225,6 +234,8 @@ class MumbleClient(mumble.Client):
             else:
                 self.send_text_message(origin, 'Please enter the prefix of the'
                                        ' room to get the topic of.')
+        elif args[0] == '.prefixes' or args[0] == '.prefix':
+            self.send_text_message(origin, self.cmd.get_prefixes())
 
         return
 
@@ -318,7 +329,7 @@ if __name__ == "__main__":
     for service in config:
         if service['type'] == 'irc':
             irc_client = IRCClient(
-                                bus, cmd, service['nick'],
+                                service['name'], bus, cmd, service['nick'],
                                 service['channel'], service['prefix'])
             irc_client.connect(
                         service['server'], service['port'],
@@ -327,8 +338,8 @@ if __name__ == "__main__":
             running_services.append(irc_client)
         if service['type'] == 'mumble':
             mumble_client = MumbleClient(
-                                    bus, cmd, service['channel_id'],
-                                    service['prefix'])
+                                    service['name'], bus, cmd,
+                                    service['channel_id'], service['prefix'])
             ssl_ctx = ssl.create_default_context()
             ssl_ctx.check_hostname = False
             ssl_ctx.verify_mode = ssl.CERT_NONE
