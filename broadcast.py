@@ -1,4 +1,5 @@
 import mumble
+import discord
 import ssl
 import pydle
 import tornado.platform.asyncio
@@ -92,6 +93,109 @@ class CommandProcessor(object):
                     for key, val in self.clients.items()])
 
 
+# Discord.py class that implements the bus interface
+class DiscordClient(discord.Client):
+    def __init__(self, name, bus, cmd, channel, prefix):
+        self.name = name
+        self.bus = bus
+        self.cmd = cmd
+        self.prefix = prefix
+        self.cmd.add_client(self)
+        self.channel_id = channel
+        self.channel = discord.Object(id=self.channel_id)
+        self.bus.add_listener(self.on_bus_message)
+        super().__init__()
+
+    # common utility functions
+    def get_user_list(self):
+        channel = self.get_channel(self.channel_id)
+        return [str(member.name) for member in channel.server.members]
+
+    def get_topic(self):
+        channel = self.get_channel(self.channel_id)
+        return channel.topic
+
+    # TODO: this entire function needs to use self.send_message and shit
+    # I could probably send as a PM to the user but that seems silly imo?
+    # not 100% sure how to handle commands
+    def handle_command(self, author, message):
+        args = message.split(' ')
+        if args[0] == '.list':
+            users = self.cmd.get_users(args[1])
+            if users:
+                self.notice(author, '\x02Users:\x02 ' + ', '.join(users))
+            else:
+                self.notice(author, 'Please enter the prefix of the '
+                                    'room to get the user list of.')
+        elif args[0] == '.topic':
+            topic = self.cmd.get_topic(args[1])
+            if topic and topic != "":
+                self.notice(author, '\x02Topic:\x02 ' + topic)
+            elif topic == "":
+                self.notice(author, 'That room has no topic.')
+            else:
+                self.notice(author, 'Please enter the prefix of the '
+                                    'room to get the topic of.')
+        elif args[0] == '.prefixes' or args[0] == '.prefix':
+            self.notice(author, self.cmd.get_prefixes())
+
+    # callbacks
+    @asyncio.coroutine
+    def on_message(self, message):
+        if message.channel.id == self.channel_id \
+                and message.author != self.user:
+            if message.author.nick:
+                self.bus.broadcast(
+                        self, str(message.author.nick),
+                        message.content, MsgType.TEXT)
+            else:
+                self.bus.broadcast(
+                        self, str(message.author),
+                        message.content, MsgType.TEXT)
+        return
+
+    def on_bus_message(self, source, author, message, msg_type):
+        if self == source:
+            return
+        if msg_type == MsgType.TEXT:
+            asyncio.ensure_future(self.send_message(
+                                            self.channel,
+                                            "[{}] **{}:** {}".format(
+                                                source.prefix,
+                                                author, message)))
+
+        if msg_type == MsgType.ACTION:
+            asyncio.ensure_future(self.send_message(
+                                            self.channel,
+                                            "[{}] *{} {}*".format(
+                                                source.prefix,
+                                                author, message)))
+
+        if msg_type == MsgType.NICK:
+            asyncio.ensure_future(self.send_message(
+                                            self.channel,
+                                            "[{}] *{} is now "
+                                            "known as {}*".format(
+                                                source.prefix,
+                                                author, message)))
+
+        if msg_type == MsgType.JOIN:
+            asyncio.ensure_future(self.send_message(
+                                            self.channel,
+                                            "[{}] *{} has joined {}*".format(
+                                                source.prefix,
+                                                author, message)))
+
+        if msg_type == MsgType.PART:
+            asyncio.ensure_future(self.send_message(
+                                            self.channel,
+                                            "[{}] *{} has left {}*".format(
+                                                source.prefix,
+                                                author, message)))
+
+        return
+
+
 # Pydle class that implements the bus interface.
 class IRCClient(pydle.Client):
     def __init__(self, name, bus, cmd, nick, channel, prefix):
@@ -145,8 +249,8 @@ class IRCClient(pydle.Client):
     def on_quit(self, user, reason):
         self.bus.broadcast(self, user, self.channel, MsgType.PART)
 
-    def irc_action(self, origin, action):
-        self.bus.broadcast(self, origin, action, MsgType.ACTION)
+    def on_ctcp_action(self, by, target, contents):
+        self.bus.broadcast(self, by, contents, MsgType.ACTION)
 
     def on_nick_change(self, old, new):
         self.bus.broadcast(self, old, new, MsgType.NICK)
@@ -351,4 +455,10 @@ if __name__ == "__main__":
                         service['server'], service['port'], service['nick'],
                         service['password'], ssl_ctx))
             running_services.append(mumble_client)
+        if service['type'] == 'discord':
+            discord_client = DiscordClient(
+                                    service['name'], bus, cmd,
+                                    service['channel'], service['prefix'])
+            discord_client.run(service['token'])
+            running_services.append(discord_client)
     loop.run_forever()
