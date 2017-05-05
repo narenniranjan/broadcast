@@ -182,14 +182,16 @@ class DiscordClient(discord.Client):
         if msg_type == MsgType.JOIN:
             asyncio.ensure_future(self.send_message(
                                             self.channel,
-                                            "[{}] *{} has joined {}*".format(
+                                            "[{}] >>> **{}** has "
+                                            "joined **{}**".format(
                                                 source.prefix,
                                                 author, message)))
 
         if msg_type == MsgType.PART:
             asyncio.ensure_future(self.send_message(
                                             self.channel,
-                                            "[{}] *{} has left {}*".format(
+                                            "[{}] <<< **{}** has "
+                                            "left **{}**".format(
                                                 source.prefix,
                                                 author, message)))
 
@@ -198,7 +200,7 @@ class DiscordClient(discord.Client):
 
 # Pydle class that implements the bus interface.
 class IRCClient(pydle.Client):
-    def __init__(self, name, bus, cmd, nick, channel, prefix):
+    def __init__(self, name, bus, cmd, nick, channel, prefix, nickpass):
         self.name = name
         self.bus = bus
         self.cmd = cmd
@@ -206,6 +208,7 @@ class IRCClient(pydle.Client):
         self.cmd.add_client(self)
         self.channel = channel
         self.bus.add_listener(self.on_bus_message)
+        self.nickpass = nickpass
         super().__init__(nick)
 
     # common utility functions
@@ -238,6 +241,9 @@ class IRCClient(pydle.Client):
 
     # callbacks
     def on_connect(self):
+        super().on_connect()
+        if self.nickpass:
+            self.message("NickServ", "IDENTIFY {}".format(self.nickpass))
         self.join(self.channel)
 
     def on_join(self, channel, user):
@@ -432,9 +438,14 @@ if __name__ == "__main__":
     # actually load and run the clients
     for service in config:
         if service['type'] == 'irc':
+            try:
+                nickpass = service['nickpass']
+            except KeyError:
+                nickpass = None
             irc_client = IRCClient(
                                 service['name'], bus, cmd, service['nick'],
-                                service['channel'], service['prefix'])
+                                service['channel'], service['prefix'],
+                                nickpass)
             irc_client.connect(
                         service['server'], service['port'],
                         tls=bool(service['tls']),

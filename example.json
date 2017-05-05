@@ -8,7 +8,9 @@
         "server": "irc.server.name",
         "port": "6697",
         "tls": "True",
-        "tls_verify": "False"
+        "tls_verify": "False",
+        "_comment": "nickpass is optional",
+        "nickpass": "nickserv password"
     },
     {
         "type": "mumble",
