@@ -106,6 +106,22 @@ class DiscordClient(discord.Client):
         self.bus.add_listener(self.on_bus_message)
         super().__init__()
 
+    # special utility functions
+    def fix_message(self, message):
+        sanitized_content = message.clean_content.replace('\n', ' ')
+        sanitized_content = sanitized_content.replace('\r', ' ')
+        # this entire function is basically copypasta'd from
+        # https://github.com/moeIO/michiru/blob/master/michiru/transports/discord.py#L110
+        # thx Shiz
+        try:
+            for user in message.mentions:
+                sanitized_content = sanitized_content.replace(
+                            '@{}'.format(user.display_name),
+                            '@' + user.display_name)
+            return sanitized_content
+        except AttributeError:
+            return sanitized_content
+
     # common utility functions
     def get_user_list(self):
         channel = self.get_channel(self.channel_id)
@@ -115,43 +131,58 @@ class DiscordClient(discord.Client):
         channel = self.get_channel(self.channel_id)
         return channel.topic
 
-    # TODO: this entire function needs to use self.send_message and shit
-    # I could probably send as a PM to the user but that seems silly imo?
-    # not 100% sure how to handle commands
     def handle_command(self, author, message):
         args = message.split(' ')
         if args[0] == '.list':
             users = self.cmd.get_users(args[1])
             if users:
-                self.notice(author, '\x02Users:\x02 ' + ', '.join(users))
+                asyncio.ensure_future(self.send_message(
+                                            author,
+                                            '**Users:** ' + ', '.join(users)))
             else:
-                self.notice(author, 'Please enter the prefix of the '
-                                    'room to get the user list of.')
+                asyncio.ensure_future(self.send_message(
+                                            author, 'Please enter the prefix '
+                                            'of the room to get the user '
+                                            'list of.'))
         elif args[0] == '.topic':
             topic = self.cmd.get_topic(args[1])
             if topic and topic != "":
-                self.notice(author, '\x02Topic:\x02 ' + topic)
+                asyncio.ensure_future(self.send_message(
+                                            author, '**Topic:** ' + topic))
             elif topic == "":
-                self.notice(author, 'That room has no topic.')
+                asyncio.ensure_future(self.send_message(
+                                            author, 'That room has no topic.'))
             else:
-                self.notice(author, 'Please enter the prefix of the '
-                                    'room to get the topic of.')
+                asyncio.ensure_future(self.send_message(
+                                            author, 'Please enter the prefix '
+                                            'of the room to get the topic '
+                                            'of.'))
         elif args[0] == '.prefixes' or args[0] == '.prefix':
-            self.notice(author, self.cmd.get_prefixes())
+            asyncio.ensure_future(self.send_message(
+                                        author, self.cmd.get_prefixes()))
 
     # callbacks
     @asyncio.coroutine
     def on_message(self, message):
+        sanitized_content = self.fix_message(message)
         if message.channel.id == self.channel_id \
                 and message.author != self.user:
-            if message.author.nick:
-                self.bus.broadcast(
-                        self, str(message.author.nick),
-                        message.content, MsgType.TEXT)
+            if is_command(sanitized_content):
+                self.handle_command(message.author, sanitized_content)
             else:
-                self.bus.broadcast(
-                        self, str(message.author),
-                        message.content, MsgType.TEXT)
+                if message.author.nick:
+                    self.bus.broadcast(
+                            self, str(message.author.nick),
+                            sanitized_content, MsgType.TEXT)
+                else:
+                    self.bus.broadcast(
+                            self, str(message.author),
+                            sanitized_content, MsgType.TEXT)
+        # TODO: make this check that the message sending user shares servers
+        # with the bot
+        if message.channel.is_private:
+            if is_command(sanitized_content):
+                self.handle_command(message.author, sanitized_content)
         return
 
     def on_bus_message(self, source, author, message, msg_type):
@@ -159,41 +190,36 @@ class DiscordClient(discord.Client):
             return
         if msg_type == MsgType.TEXT:
             asyncio.ensure_future(self.send_message(
-                                            self.channel,
-                                            "[{}] **{}:** {}".format(
-                                                source.prefix,
-                                                author, message)))
+                                        self.channel, "[{}] **{}:** {}".format(
+                                                            source.prefix,
+                                                            author, message)))
 
         if msg_type == MsgType.ACTION:
             asyncio.ensure_future(self.send_message(
-                                            self.channel,
-                                            "[{}] *{} {}*".format(
-                                                source.prefix,
-                                                author, message)))
+                                        self.channel, "[{}] *{} {}*".format(
+                                                            source.prefix,
+                                                            author, message)))
 
         if msg_type == MsgType.NICK:
             asyncio.ensure_future(self.send_message(
-                                            self.channel,
-                                            "[{}] *{} is now "
-                                            "known as {}*".format(
-                                                source.prefix,
-                                                author, message)))
+                                        self.channel, "[{}] *{} is now "
+                                                      "known as {}*".format(
+                                                            source.prefix,
+                                                            author, message)))
 
         if msg_type == MsgType.JOIN:
             asyncio.ensure_future(self.send_message(
-                                            self.channel,
-                                            "[{}] >>> **{}** has "
-                                            "joined **{}**".format(
-                                                source.prefix,
-                                                author, message)))
+                                        self.channel, "[{}] >>> **{}** has "
+                                                      "joined **{}**".format(
+                                                            source.prefix,
+                                                            author, message)))
 
         if msg_type == MsgType.PART:
             asyncio.ensure_future(self.send_message(
-                                            self.channel,
-                                            "[{}] <<< **{}** has "
-                                            "left **{}**".format(
-                                                source.prefix,
-                                                author, message)))
+                                        self.channel, "[{}] <<< **{}** has "
+                                                      "left **{}**".format(
+                                                            source.prefix,
+                                                            author, message)))
 
         return
 
@@ -275,30 +301,33 @@ class IRCClient(pydle.Client):
             self.message(
                 self.channel, "[{}] \x02{}:\x02 {}".format(
                                                         source.prefix,
-                                                        author, message))
+                                                        author, message)[:400])
         elif msg_type == MsgType.ACTION:
             self.message(
                 self.channel, "[{}] *\x02{}\x02 {}*".format(
                                                 source.prefix,
-                                                author, message))
+                                                author, message)[:400])
         elif msg_type == MsgType.NICK:
             self.message(
                 self.channel,
                 "[{}] \x02{}\x02 is now known as \x02{}\x02".format(
                                                             source.prefix,
-                                                            author, message))
+                                                            author,
+                                                            message)[:400])
         elif msg_type == MsgType.JOIN:
             self.message(
                 self.channel,
                 "[{}] >>> \x02{}\x02 has joined \x02{}\x02".format(
                                                             source.prefix,
-                                                            author, message))
+                                                            author,
+                                                            message)[:400])
         elif msg_type == MsgType.PART:
             self.message(
                 self.channel,
                 "[{}] <<< \x02{}\x02 has left \x02{}\x02".format(
                                                             source.prefix,
-                                                            author, message))
+                                                            author,
+                                                            message)[:400])
 
 
 # python-mumble class that impelements the bus interface
@@ -360,8 +389,8 @@ class MumbleClient(mumble.Client):
                         self.me.get_channel().name, MsgType.PART)
         if dest and dest == self.me.get_channel():
             self.bus.broadcast(
-                        self, user.name,
-                        self.me.get_channel().name, MsgType.JOIN)
+                        self, user.name, self.me.get_channel().name,
+                        MsgType.JOIN)
 
     def text_message_received(self, origin, target, message):
         if is_command(message):
