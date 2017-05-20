@@ -12,7 +12,7 @@ from enum import Enum
 
 
 def escape_nick(nick):
-    return nick.replace("", "\u00AD")
+    return nick.replace("", "\u200D")
 
 
 def strip_html(html):
