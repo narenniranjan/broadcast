@@ -1,35 +1,41 @@
-[
-    {
-        "type": "irc",
-        "name": "name",
-        "prefix", "I",
-        "nick": "Mumble",
-        "channel": "#channel",
-        "server": "irc.server.name",
-        "port": "6697",
-        "tls": "True",
-        "tls_verify": "False",
-        "_comment": "nickpass is optional",
-        "nickpass": "nickserv password"
-    },
-    {
-        "type": "mumble",
-        "name": "name",
-        "prefix": "M",
-        "nick": "IRC",
-        "channel_id": "0",
-        "server": "mumble.server.name",
-        "port": "64738",
-        "password": "pass",
-        "_comment": "the following two are optional fields",
-        "cert": "/path/to/cert",
-        "certpw": "pass"
-    },
-    {
-        "type": "discord",
-        "name": "name",
-        "prefix": "D",
-        "_comment": "make sure that the following is quoted",
-        "channel": "12309135",
-        "token": "paste token here"
-]
+{
+    "enable_joinpart": 1,
+    "enable_prefixes": 0,
+    "services":
+    [
+        {
+            "type": "irc",
+            "name": "name",
+            "prefix", "I",
+            "nick": "Mumble",
+            "channel": "#channel",
+            "server": "irc.server.name",
+            "port": "6697",
+            "tls": "True",
+            "tls_verify": "False",
+            "_comment": "nickpass is optional",
+            "nickpass": "nickserv password"
+        },
+        {
+            "type": "mumble",
+            "name": "name",
+            "prefix": "M",
+            "nick": "IRC",
+            "channel_id": "0",
+            "server": "mumble.server.name",
+            "port": "64738",
+            "password": "pass",
+            "_comment": "the following two are optional fields",
+            "cert": "/path/to/cert",
+            "certpw": "pass"
+        },
+        {
+            "type": "discord",
+            "name": "name",
+            "prefix": "D",
+            "_comment": "make sure that the following is quoted",
+            "channel": "12309135",
+            "token": "paste token here"
+        }
+    ]
+}
