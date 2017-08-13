@@ -1,5 +1,6 @@
-import discord
 import asyncio
+import discord
+import re
 from util import is_command, MsgType
 
 
@@ -20,20 +21,19 @@ class DiscordClient(discord.Client):
         super().__init__()
 
     # special utility functions
-    def fix_message(self, message):
+    @staticmethod
+    def fix_emojis(emoji_identifier):
+        emoji_identifier = emoji_identifier.group(0)
+        try:
+            return ':{}:'.format(emoji_identifier[1:-1].split(':')[1])
+        except:
+            return emoji_identifier
+
+    @staticmethod
+    def fix_message(message):
         sanitized_content = message.clean_content.replace('\n', ' ')
         sanitized_content = sanitized_content.replace('\r', ' ')
-        # this entire function is basically copypasta'd from
-        # https://github.com/moeIO/michiru/blob/master/michiru/transports/discord.py#L110
-        # thx Shiz
-        try:
-            for user in message.mentions:
-                sanitized_content = sanitized_content.replace(
-                            '@{}'.format(user.display_name),
-                            '@' + user.display_name)
-            return sanitized_content
-        except AttributeError:
-            return sanitized_content
+        return sanitized_content
 
     # common utility functions
     def get_user_list(self):
@@ -75,7 +75,7 @@ class DiscordClient(discord.Client):
     # callbacks
     @asyncio.coroutine
     def on_message(self, message):
-        sanitized_content = self.fix_message(message)
+        sanitized_content = DiscordClient.fix_message(message)
 
         # If there are attached files, append them to the sanitized message
         if len(message.attachments):
@@ -86,6 +86,9 @@ class DiscordClient(discord.Client):
         if len(message.embeds):
             for embed in message.embeds:
                 sanitized_content += " {}".format(embed['url'])
+
+        # Replace those ugly custom emoji strings with the name of the emoji
+        sanitized_content = re.sub('<:\S+:\d+>', DiscordClient.fix_emojis, sanitized_content)
 
         if message.channel.id == self.channel_id \
                 and message.author != self.user:
