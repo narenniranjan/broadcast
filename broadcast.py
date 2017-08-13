@@ -8,7 +8,6 @@ from services.irc_client import IRCClient
 from services.mumble_client import MumbleClient
 from util import Bus, CommandProcessor
 
-global JOINPART, PREFIXES
 
 if __name__ == "__main__":
     # list of the running services
@@ -41,8 +40,8 @@ if __name__ == "__main__":
     cmd = CommandProcessor()
 
     # Set globals based on config file
-    JOINPART = config['enable_joinpart']
-    PREFIXES = config['enable_prefixes']
+    enable_joinparts = config['enable_joinpart']
+    enable_prefixes = config['enable_prefixes']
 
     # actually load and run the clients
     for service in config['services']:
@@ -54,7 +53,7 @@ if __name__ == "__main__":
             irc_client = IRCClient(
                                 service['name'], bus, cmd, service['nick'],
                                 service['channel'], nickpass, prefix=service['prefix'],
-                                enable_prefixes=PREFIXES, enable_joinparts=JOINPART)
+                                enable_prefixes=enable_prefixes, enable_joinparts=enable_joinparts)
 
             irc_client.connect(
                         service['server'], service['port'],
@@ -67,7 +66,7 @@ if __name__ == "__main__":
             mumble_client = MumbleClient(
                                     service['name'], bus, cmd,
                                     service['channel_id'], prefix=service['prefix'],
-                                    enable_prefixes=PREFIXES, enable_joinparts=JOINPART)
+                                    enable_prefixes=enable_prefixes, enable_joinparts=enable_joinparts)
 
             ssl_ctx = ssl.create_default_context()
             ssl_ctx.check_hostname = False
@@ -85,7 +84,7 @@ if __name__ == "__main__":
             discord_client = DiscordClient(
                                     service['name'], bus, cmd,
                                     service['channel'], prefix=service['prefix'],
-                                    enable_prefixes=PREFIXES, enable_joinparts=JOINPART)
+                                    enable_prefixes=enable_prefixes, enable_joinparts=enable_joinparts)
             discord_client.run(service['token'])
             running_services.append(discord_client)
     loop.run_forever()

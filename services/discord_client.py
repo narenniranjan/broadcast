@@ -76,6 +76,17 @@ class DiscordClient(discord.Client):
     @asyncio.coroutine
     def on_message(self, message):
         sanitized_content = self.fix_message(message)
+
+        # If there are attached files, append them to the sanitized message
+        if len(message.attachments):
+            for attachment in message.attachments:
+                sanitized_content += " {}".format(attachment['url'])
+
+        # If there are embeds, append their URLs to the message
+        if len(message.embeds):
+            for embed in message.embeds:
+                sanitized_content += " {}".format(embed['url'])
+
         if message.channel.id == self.channel_id \
                 and message.author != self.user:
             if is_command(sanitized_content):
