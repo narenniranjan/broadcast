@@ -35,6 +35,20 @@ class DiscordClient(discord.Client):
         sanitized_content = sanitized_content.replace('\r', ' ')
         return sanitized_content
 
+    def fix_pings(self, username):
+        def match_username(user):
+            if user.name == username[1:]:
+                return True
+            if user.nick is not None and user.nick == username[1:]:
+                return True
+            return False
+
+        username = username.group(0)
+        channel = self.get_channel(self.channel_id)
+        member = discord.utils.find(match_username, channel.server.members)
+
+        return member.mention if member is not None else username
+
     # common utility functions
     def get_user_list(self):
         channel = self.get_channel(self.channel_id)
@@ -136,6 +150,9 @@ class DiscordClient(discord.Client):
         # was even more ugly, so this is the way I'm doing it
         if not self.enable_prefixes:
             msg = msg[len(source.prefix) + 3:]
+
+        # Replace @user pings with actual pings
+        msg = re.sub('@\S+', self.fix_pings, msg)
 
         asyncio.ensure_future(self.send_message(self.channel, msg))
         return
