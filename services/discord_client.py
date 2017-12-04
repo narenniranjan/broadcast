@@ -111,7 +111,7 @@ class DiscordClient(discord.Client):
             else:
                 if message.author.nick:
                     self.bus.broadcast(
-                            self, str(message.author.nick),
+                            self, '{} ({}):'.format(str(message.author.name), str(message.author.nick)),
                             sanitized_content, MsgType.TEXT)
                 else:
                     self.bus.broadcast(
