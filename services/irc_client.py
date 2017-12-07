@@ -20,6 +20,17 @@ class IRCClient(pydle.Client):
 
         super().__init__(nick)
 
+    # Modifications to allow autorejoin
+
+    def connect(self, hostname=None, port=None, tls=False, **kwargs):
+        super().connect(hostname, port, tls, **kwargs)
+        self.eventloop.schedule_periodically(10, self.rejoin_channel)
+
+    def rejoin_channel(self):
+        if not self.in_channel(self.channel):
+            self.logger.warning('Joining {}'.format(self.channel))
+            self.join(self.channel)
+
     # common utility functions
     def get_user_list(self):
         return [i for i in self.channels[self.channel]['users']]
@@ -81,6 +92,11 @@ class IRCClient(pydle.Client):
             self.handle_command(target, message)
         else:
             self.bus.broadcast(self, target, message, MsgType.TEXT)
+
+    def on_invite(self, channel, by):
+        if not self.in_channel(self.channel) and channel.lower() == self.channel.lower():
+            self.logger.warning('Got invite from {} to join {}'.format(by, channel))
+            self.join(self.channel)
 
     def on_bus_message(self, source, author, message, msg_type):
         if self == source:
