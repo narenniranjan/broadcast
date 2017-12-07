@@ -87,8 +87,4 @@ if __name__ == "__main__":
                                     enable_prefixes=enable_prefixes, enable_joinparts=enable_joinparts)
             discord_client.run(service['token'])
             running_services.append(discord_client)
-    while True:
-        try:
-            loop.run_forever()
-        except RuntimeError as err:
-            print("Encountered RuntimeError, restarting...")
+    loop.run_forever()
