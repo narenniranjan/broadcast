@@ -6,7 +6,7 @@
         {
             "type": "irc",
             "name": "name",
-            "prefix", "I",
+            "prefix": "I",
             "nick": "Mumble",
             "channel": "#channel",
             "server": "irc.server.name",
